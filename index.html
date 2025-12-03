@@ -1,11 +1,25 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Snikerdoodle Test</title>
-</head>
-<body>
-    <h1>Hello from snikerdoodle.dpdns.org </h1>
-    <p>This is a GitHub Pages test site.</p>
-    <script>alert("Testing XSS")</script>
-</body>
-</html>
+<script>
+  // Ask the user for a new note
+  var note = prompt("Enter a new note. Leave blank and press Cancel to skip.");
+
+  // Retrieve existing notes from localStorage, or create empty array
+  var notes = JSON.parse(localStorage.getItem('notes_storage')) || [];
+
+  // If user entered something, add it to notes and save
+  if (note !== null && note.trim() !== "") {
+    notes.push(note.trim());
+    localStorage.setItem('notes_storage', JSON.stringify(notes));
+  }
+
+  // Display all notes
+  if (notes.length > 0) {
+    var notesList = '<h2>Your Notes:</h2><ul>';
+    notes.forEach(function(n) {
+      notesList += '<li>' + n + '</li>';
+    });
+    notesList += '</ul>';
+    document.body.insertAdjacentHTML('beforeend', notesList);
+  } else {
+    document.body.insertAdjacentHTML('beforeend', '<p>No notes yet. Add one above!</p>');
+  }
+</script>
