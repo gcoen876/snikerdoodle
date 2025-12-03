@@ -1,25 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cloud Notes (GitHub Gist)</title>
+</head>
+<body>
+
+<h1>Cloud Notes (GitHub Storage)</h1>
+
+<input id="noteInput" placeholder="Enter note" style="width:300px;" />
+<button onclick="addNote()">Add Note</button>
+
+<h2>Your Notes</h2>
+<ul id="notesList"></ul>
+
 <script>
-  // Ask the user for a new note
-  var note = prompt("Enter a new note. Leave blank and press Cancel to skip.");
+  const GIST_ID = "00cc958d703860798be2f3b1d8abf959";
+  const API_TOKEN = "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"; 
 
-  // Retrieve existing notes from localStorage, or create empty array
-  var notes = JSON.parse(localStorage.getItem('notes_storage')) || [];
-
-  // If user entered something, add it to notes and save
-  if (note !== null && note.trim() !== "") {
-    notes.push(note.trim());
-    localStorage.setItem('notes_storage', JSON.stringify(notes));
-  }
-
-  // Display all notes
-  if (notes.length > 0) {
-    var notesList = '<h2>Your Notes:</h2><ul>';
-    notes.forEach(function(n) {
-      notesList += '<li>' + n + '</li>';
+  async function fetchNotes() {
+    const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      headers: {
+        "Authorization": "token " + API_TOKEN
+      }
     });
-    notesList += '</ul>';
-    document.body.insertAdjacentHTML('beforeend', notesList);
-  } else {
-    document.body.insertAdjacentHTML('beforeend', '<p>No notes yet. Add one above!</p>');
+
+    const gist = await res.json();
+    const content = gist.files["notes.json"].content;
+
+    try {
+      return JSON.parse(content).notes || [];
+    } catch {
+      return [];
+    }
   }
+
+  async function saveNotes(notes) {
+    const fileContent = JSON.stringify({ notes }, null, 2);
+
+    await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+      method: "PATCH",
+      headers: {
+        "Authorization": "token " + API_TOKEN,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        files: {
+          "notes.json": {
+            content: fileContent
+          }
+        }
+      })
+    });
+  }
+
+  async function addNote() {
+    const input = document.getElementById("noteInput");
+    const text = input.value.trim();
+    if (!text) return;
+
+    const notes = await fetchNotes();
+    notes.push(text);
+
+    await saveNotes(notes);
+    input.value = "";
+    renderNotes();
+  }
+
+  async function renderNotes() {
+    const notes = await fetchNotes();
+    const list = document.getElementById("notesList");
+    list.innerHTML = "";
+
+    notes.forEach(n => {
+      const li = document.createElement("li");
+      li.textContent = n;
+      list.appendChild(li);
+    });
+  }
+
+  renderNotes();
 </script>
+
+</body>
+</html>
