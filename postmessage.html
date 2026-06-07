@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <button id="autoBtn">Auto Get Token & Test API</button>
+    <pre id="output"></pre>
+
+    <script>
+        const log = (msg) => {
+            document.getElementById("output").innerText += msg + "\n";
+        };
+
+        document.getElementById("autoBtn").onclick = () => {
+            log("Step 1: Opening app.base44.com to request token...");
+            
+            const popup = window.open("https://app.base44.com", "TokenPopup", "width=500,height=500");
+            
+            // Send message to popup requesting token
+            const messageHandler = (event) => {
+                if (event.origin !== "https://app.base44.com") return;
+                
+                if (event.data && event.data.token) {
+                    log("✅ Token received from popup: " + event.data.token.substring(0,30) + "...");
+                    log("Step 2: Waiting 2 seconds before API call...");
+                    
+                    setTimeout(async () => {
+                        try {
+                            const res = await fetch("https://app.base44.com/api/auth/me", {
+                                headers: { "Authorization": `Bearer ${event.data.token}` },
+                                credentials: "include"
+                            });
+                            const text = await res.text();
+                            log("✅ Status: " + res.status);
+                            log("Response: " + text.substring(0, 200));
+                            if (popup && !popup.closed) popup.close();
+                        } catch(err) {
+                            log("❌ CORS Error: " + err.message);
+                            if (popup && !popup.closed) popup.close();
+                        }
+                    }, 2000);
+                    
+                    window.removeEventListener("message", messageHandler);
+                }
+            };
+            
+            window.addEventListener("message", messageHandler);
+            
+            // Inject token extractor into popup after it loads
+            const checkInterval = setInterval(() => {
+                if (popup && popup.document && popup.document.body) {
+                    clearInterval(checkInterval);
+                    const script = popup.document.createElement("script");
+                    script.textContent = `
+                        const token = localStorage.getItem("base44_access_token");
+                        if (token) {
+                            window.opener.postMessage({ token: token }, "${window.location.origin}");
+                            setTimeout(() => window.close(), 1000);
+                        } else {
+                            alert("No token found! Please login first.");
+                        }
+                    `;
+                    popup.document.body.appendChild(script);
+                    log("Waiting for token extraction...");
+                }
+            }, 500);
+            
+            // Auto-cleanup
+            setTimeout(() => {
+                if (popup && !popup.closed) popup.close();
+                window.removeEventListener("message", messageHandler);
+            }, 10000);
+        };
+    </script>
+</body>
+</html>
