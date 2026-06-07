@@ -21,8 +21,6 @@
             
             let timeoutId;
             const handler = (event) => {
-                if (event.origin !== "https://app.base44.com") return;
-                
                 if (event.data && event.data.type === "TOKEN") {
                     const token = event.data.token;
                     log("✅ Token received: " + (token ? token.substring(0,30)+"..." : "null"));
