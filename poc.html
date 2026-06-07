@@ -12,10 +12,14 @@
         document.getElementById("autoBtn").onclick = () => {
             log("Opening app.base44.com - please wait...");
             
-            // Open popup with a specific path that we control
             const popup = window.open("https://app.base44.com?tokenRequest=true", "TokenPopup", "width=500,height=500");
             
-            // Listen for token from popup
+            if (!popup) {
+                log("❌ Popup blocked by browser");
+                return;
+            }
+            
+            let timeoutId;
             const handler = (event) => {
                 if (event.origin !== "https://app.base44.com") return;
                 
@@ -24,31 +28,35 @@
                     log("✅ Token received: " + (token ? token.substring(0,30)+"..." : "null"));
                     
                     if (!token) {
-                        log("❌ No token found");
+                        log("❌ No token found in localStorage key 'base44_access_token'");
                         if (popup && !popup.closed) popup.close();
+                        window.removeEventListener("message", handler);
+                        clearTimeout(timeoutId);
                         return;
                     }
                     
-                    log("Making API request...");
+                    log("Making API request to https://app.base44.com/api/auth/me...");
                     fetch("https://app.base44.com/api/auth/me", {
                         headers: { "Authorization": `Bearer ${token}` },
                         credentials: "include"
                     })
-                    .then(res => res.text())
-                    .then(text => log("✅ Status: " + res.status + "\nResponse: " + text.substring(0, 200)))
+                    .then(res => res.text().then(text => ({ status: res.status, text })))
+                    .then(data => log("✅ Status: " + data.status + "\nResponse: " + data.text.substring(0, 200)))
                     .catch(err => log("❌ Error: " + err.message))
-                    .finally(() => { if (popup && !popup.closed) popup.close(); });
-                    
-                    window.removeEventListener("message", handler);
+                    .finally(() => {
+                        if (popup && !popup.closed) popup.close();
+                        window.removeEventListener("message", handler);
+                        clearTimeout(timeoutId);
+                    });
                 }
             };
             
             window.addEventListener("message", handler);
             
-            // Auto-close after 10 seconds
-            setTimeout(() => {
+            timeoutId = setTimeout(() => {
                 if (popup && !popup.closed) popup.close();
                 window.removeEventListener("message", handler);
+                log("❌ Timeout - no token received");
             }, 10000);
         };
     </script>
