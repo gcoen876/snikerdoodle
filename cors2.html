@@ -9,63 +9,64 @@
             document.getElementById("output").innerText += msg + "\n";
         };
 
-        document.getElementById("autoBtn").onclick = async () => {
-            log("Step 1: Opening app.base44.com to access localStorage...");
+        document.getElementById("autoBtn").onclick = () => {
+            log("Step 1: Opening app.base44.com to access its localStorage...");
             
             const popup = window.open("https://app.base44.com", "TokenPopup", "width=500,height=500");
-            let tokenReceived = false;
+            let tokenExtracted = false;
             
-            // Wait for popup to load and extract token
-            const extractToken = () => {
+            // Poll popup's localStorage
+            const interval = setInterval(() => {
+                if (!popup || popup.closed) {
+                    clearInterval(interval);
+                    if (!tokenExtracted) log("❌ Popup closed without token");
+                    return;
+                }
+                
                 try {
-                    // Try to access localStorage directly (works if same origin)
-                    const token = localStorage.getItem("base44_access_token");
-                    if (token) {
-                        log("✅ Token found in localStorage!");
-                        return token;
+                    // Access the popup's localStorage directly
+                    const token = popup.localStorage.getItem("base44_access_token");
+                    if (token && !tokenExtracted) {
+                        tokenExtracted = true;
+                        clearInterval(interval);
+                        log("✅ Token extracted from popup: " + token.substring(0,30) + "...");
+                        log("Step 2: Waiting 2 seconds before API call...");
+                        
+                        setTimeout(async () => {
+                            try {
+                                const res = await fetch("https://app.base44.com/api/auth/me", {
+                                    headers: { "Authorization": `Bearer ${token}` },
+                                    credentials: "include"
+                                });
+                                const text = await res.text();
+                                log("✅ Status: " + res.status);
+                                log("Response: " + text.substring(0, 200));
+                                popup.close();
+                            } catch(err) {
+                                log("❌ CORS Error: " + err.message);
+                                popup.close();
+                            }
+                        }, 2000);
                     }
                 } catch(e) {
-                    log("Direct access failed: " + e.message);
+                    // Cross-origin error - can't access popup's localStorage
+                    if (e.message.includes("SecurityError") || e.message.includes("cross-origin")) {
+                        clearInterval(interval);
+                        log("❌ Cannot access popup's localStorage due to same-origin policy");
+                        log("Alternative: Use the postMessage method below");
+                        popup.close();
+                    }
                 }
-                return null;
-            };
+            }, 500);
             
-            // Try direct access first
+            // Auto-close after 10 seconds
             setTimeout(() => {
-                const token = extractToken();
-                if (token) {
-                    tokenReceived = true;
-                    log("Step 2: Token extracted: " + token.substring(0,30) + "...");
-                    log("Step 3: Making API request with 2 second delay...");
-                    
-                    setTimeout(async () => {
-                        try {
-                            const res = await fetch("https://app.base44.com/api/auth/me", {
-                                headers: { "Authorization": `Bearer ${token}` },
-                                credentials: "include"
-                            });
-                            const text = await res.text();
-                            log("✅ Status: " + res.status);
-                            log("Response: " + text.substring(0, 200));
-                            if (popup && !popup.closed) popup.close();
-                        } catch(err) {
-                            log("❌ CORS Error: " + err.message);
-                            if (popup && !popup.closed) popup.close();
-                        }
-                    }, 2000);
-                } else {
-                    log("❌ No token found. Make sure you're logged into app.base44.com");
-                    if (popup && !popup.closed) popup.close();
-                }
-            }, 1500);
-            
-            // Auto-close popup after 5 seconds if no token
-            setTimeout(() => {
-                if (!tokenReceived && popup && !popup.closed) {
-                    log("Closing popup - no token detected");
+                if (popup && !popup.closed && !tokenExtracted) {
+                    clearInterval(interval);
+                    log("Timeout - closing popup");
                     popup.close();
                 }
-            }, 5000);
+            }, 10000);
         };
     </script>
 </body>
