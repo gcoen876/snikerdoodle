@@ -9,53 +9,62 @@
             document.getElementById("output").innerText += msg + "\n";
         };
 
-        document.getElementById("autoBtn").onclick = () => {
-            log("Opening app.base44.com - please wait...");
+        document.getElementById("autoBtn").onclick = async () => {
+            log("Opening app.base44.com...");
             
-            const popup = window.open("https://app.base44.com?tokenRequest=true", "TokenPopup", "width=500,height=500");
+            const popup = window.open("https://app.base44.com", "TokenPopup", "width=500,height=500");
             
             if (!popup) {
-                log("❌ Popup blocked by browser");
+                log("❌ Popup blocked");
                 return;
             }
             
-            let timeoutId;
-            const handler = (event) => {
-                if (event.data && event.data.type === "TOKEN") {
-                    const token = event.data.token;
-                    log("✅ Token received: " + (token ? token.substring(0,30)+"..." : "null"));
+            // Wait for popup to load then access its localStorage
+            let attempts = 0;
+            const maxAttempts = 20;
+            
+            const interval = setInterval(() => {
+                attempts++;
+                
+                try {
+                    // Try to access popup's localStorage
+                    const token = popup.localStorage.getItem("base44_access_token");
                     
-                    if (!token) {
-                        log("❌ No token found in localStorage key 'base44_access_token'");
-                        if (popup && !popup.closed) popup.close();
-                        window.removeEventListener("message", handler);
-                        clearTimeout(timeoutId);
-                        return;
+                    if (token) {
+                        clearInterval(interval);
+                        log("✅ Token found: " + token.substring(0,30) + "...");
+                        log("Closing popup and making API request...");
+                        popup.close();
+                        
+                        // Add delay before API request
+                        setTimeout(async () => {
+                            try {
+                                const res = await fetch("https://app.base44.com/api/auth/me", {
+                                    headers: { "Authorization": `Bearer ${token}` },
+                                    credentials: "include"
+                                });
+                                const text = await res.text();
+                                log("✅ Status: " + res.status);
+                                log("Response: " + text.substring(0, 200));
+                            } catch(err) {
+                                log("❌ Error: " + err.message);
+                            }
+                        }, 1000);
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        log("❌ Timeout - no token found");
+                        popup.close();
                     }
-                    
-                    log("Making API request to https://app.base44.com/api/auth/me...");
-                    fetch("https://app.base44.com/api/auth/me", {
-                        headers: { "Authorization": `Bearer ${token}` },
-                        credentials: "include"
-                    })
-                    .then(res => res.text().then(text => ({ status: res.status, text })))
-                    .then(data => log("✅ Status: " + data.status + "\nResponse: " + data.text.substring(0, 200)))
-                    .catch(err => log("❌ Error: " + err.message))
-                    .finally(() => {
-                        if (popup && !popup.closed) popup.close();
-                        window.removeEventListener("message", handler);
-                        clearTimeout(timeoutId);
-                    });
+                } catch(e) {
+                    // Cross-origin error - this will happen if different origins
+                    if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                        log("❌ Cannot access localStorage - cross-origin blocked");
+                        log("This only works if this page is on https://app.base44.com");
+                        popup.close();
+                    }
                 }
-            };
-            
-            window.addEventListener("message", handler);
-            
-            timeoutId = setTimeout(() => {
-                if (popup && !popup.closed) popup.close();
-                window.removeEventListener("message", handler);
-                log("❌ Timeout - no token received");
-            }, 10000);
+            }, 500);
         };
     </script>
 </body>
