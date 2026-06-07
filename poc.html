@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <button id="autoBtn">Auto Get Token & Test API</button>
+    <pre id="output"></pre>
+
+    <script>
+        const log = (msg) => {
+            document.getElementById("output").innerText += msg + "\n";
+        };
+
+        document.getElementById("autoBtn").onclick = () => {
+            log("Opening app.base44.com - please wait...");
+            
+            // Open popup with a specific path that we control
+            const popup = window.open("https://app.base44.com?tokenRequest=true", "TokenPopup", "width=500,height=500");
+            
+            // Listen for token from popup
+            const handler = (event) => {
+                if (event.origin !== "https://app.base44.com") return;
+                
+                if (event.data && event.data.type === "TOKEN") {
+                    const token = event.data.token;
+                    log("✅ Token received: " + (token ? token.substring(0,30)+"..." : "null"));
+                    
+                    if (!token) {
+                        log("❌ No token found");
+                        if (popup && !popup.closed) popup.close();
+                        return;
+                    }
+                    
+                    log("Making API request...");
+                    fetch("https://app.base44.com/api/auth/me", {
+                        headers: { "Authorization": `Bearer ${token}` },
+                        credentials: "include"
+                    })
+                    .then(res => res.text())
+                    .then(text => log("✅ Status: " + res.status + "\nResponse: " + text.substring(0, 200)))
+                    .catch(err => log("❌ Error: " + err.message))
+                    .finally(() => { if (popup && !popup.closed) popup.close(); });
+                    
+                    window.removeEventListener("message", handler);
+                }
+            };
+            
+            window.addEventListener("message", handler);
+            
+            // Auto-close after 10 seconds
+            setTimeout(() => {
+                if (popup && !popup.closed) popup.close();
+                window.removeEventListener("message", handler);
+            }, 10000);
+        };
+    </script>
+</body>
+</html>
